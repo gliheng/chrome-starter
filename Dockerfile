@@ -1,9 +1,13 @@
-# FROM repo-dev.htsc/public-cncp-image-base-local/node:20 AS builder
-FROM node:22-alpine3.20
+FROM node:22-alpine3.20 AS base
+
+RUN apk add chromium
+
+
+FROM base
 
 WORKDIR /app
 
-COPY package.json yarn.lock .npmrc ./
+COPY package.json yarn.lock ./
 
 RUN yarn
 
