@@ -25,7 +25,7 @@ function getDefaultChromePath() {
     case "win32":
       return "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"; // Check x86?
     case "linux":
-      return "/usr/bin/google-chrome" || "/opt/google/chrome/chrome";
+      return "/usr/bin/chromium";
     default:
       console.warn(
         `Unsupported platform: ${process.platform}. Please set CHROME_PATH.`,
@@ -207,7 +207,8 @@ async function handleConnection(clientWs, identifier) {
     );
     const args = [
       `--remote-debugging-port=${debugPort}`,
-      // "--headless",
+      "--headless",
+      "--no-sandbox",
       "--no-first-run",
       "--no-default-browser-check",
       "--disable-gpu",
