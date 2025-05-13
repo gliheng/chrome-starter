@@ -16,6 +16,7 @@ await page.setViewport({ width: 1080, height: 1024 });
 
 await page.pdf({
   path: "screenshot.pdf",
+  printBackground: true,
 });
 
 await browser.close();
