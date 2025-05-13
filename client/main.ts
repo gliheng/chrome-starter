@@ -1,7 +1,7 @@
 import puppeteer from "npm:puppeteer-core";
 
 const browser = await puppeteer.connect({
-  browserWSEndpoint: "ws://localhost:8080/ws/fdafs",
+  browserWSEndpoint: "ws://localhost:8080/ws/" + (Deno.args[0] ?? 'default'),
 });
 
 const page = await browser.newPage();
@@ -16,7 +16,6 @@ await page.setViewport({ width: 1080, height: 1024 });
 
 await page.pdf({
   path: "screenshot.pdf",
-  // encoding: 'binary'
 });
 
 await browser.close();
