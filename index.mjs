@@ -482,7 +482,6 @@ server.on("upgrade", (request, socket, head) => {
 
     console.log(`WebSocket upgrade request for identifier: ${identifier}`);
     wss.handleUpgrade(request, socket, head, (ws) => {
-      console.log("head", head);
       // handleConnection returns a promise, catch errors here
       handleConnection(ws, identifier).catch((err) => {
         console.error(

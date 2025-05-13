@@ -6,8 +6,6 @@ const browser = await puppeteer.connect({
 
 const page = await browser.newPage();
 
-console.log("after new page");
-
 // Navigate the page to a URL.
 await page.goto("https://www.baidu.com/", {
   waitUntil: "networkidle2",
