@@ -208,7 +208,6 @@ async function handleConnection(clientWs, identifier) {
     const args = [
       `--remote-debugging-port=${debugPort}`,
       "--headless",
-      "--no-sandbox",
       "--no-first-run",
       "--no-default-browser-check",
       "--disable-gpu",
@@ -223,7 +222,10 @@ async function handleConnection(clientWs, identifier) {
     console.log(
       `[${identifier}] Launching Chrome: ${CHROME_PATH} ${args.join(" ")}`,
     );
-    chromeProcess = spawn(CHROME_PATH, args);
+    chromeProcess = spawn(CHROME_PATH, args, {
+      uid: 500,
+      gid: 500,
+    });
 
     // Handle Chrome process errors during launch phase using a Promise
     const chromeLaunchError = new Promise((_, reject) => {
