@@ -22,8 +22,12 @@ COPY . .
 RUN chmod +x entrypoint.sh
 
 
-ENV NODE_ENV production
-ENV PORT 8080
+ENV NODE_ENV=production
+ENV PORT=8080
+
+# Clue: https://github.com/hardkoded/puppeteer-sharp/issues/2633#issuecomment-2107557005
+ENV XDG_CONFIG_HOME=/tmp/.chromium
+ENV XDG_CACHE_HOME=/tmp/.chromium
 
 EXPOSE 8080
 

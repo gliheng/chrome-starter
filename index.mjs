@@ -205,18 +205,23 @@ async function handleConnection(clientWs, identifier) {
       os.tmpdir(),
       `chrome-session-${identifier}-${Date.now()}`,
     );
+
     const args = [
       `--remote-debugging-port=${debugPort}`,
-      "--headless",
+      "--headless=new",
       "--no-first-run",
       "--no-default-browser-check",
       "--disable-gpu",
       "--disable-extensions",
+      "--disable-vulkan-surface",
       "--disable-sync",
       "--disable-translate",
       "--metrics-recording-only",
       "--mute-audio",
       `--user-data-dir=${tmpDir}`,
+      "--disable-breakpad",
+      "--disable-crash-reporter",
+      `--crash-dumps-dir=${os.tmpdir()}`,
       "about:blank",
     ];
     console.log(
