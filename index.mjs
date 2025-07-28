@@ -211,6 +211,7 @@ async function handleConnection(clientWs, identifier) {
       "--headless=new",
       "--no-first-run",
       "--no-default-browser-check",
+      "--no-sandbox",
       "--disable-gpu",
       "--disable-extensions",
       "--disable-vulkan-surface",
@@ -222,15 +223,16 @@ async function handleConnection(clientWs, identifier) {
       "--disable-breakpad",
       "--disable-crash-reporter",
       `--crash-dumps-dir=${os.tmpdir()}`,
+      "--disable-setuid-sandbox",
+      "--ignore-certificate-errors",
+      "--disable-accelerated-2d-canvas",
+      "--disable-dev-shm-usage",
       "about:blank",
     ];
     console.log(
       `[${identifier}] Launching Chrome: ${CHROME_PATH} ${args.join(" ")}`,
     );
-    chromeProcess = spawn(CHROME_PATH, args, {
-      uid: 500,
-      gid: 500,
-    });
+    chromeProcess = spawn(CHROME_PATH, args);
 
     // Handle Chrome process errors during launch phase using a Promise
     const chromeLaunchError = new Promise((_, reject) => {
