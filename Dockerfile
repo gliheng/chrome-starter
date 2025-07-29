@@ -10,9 +10,6 @@ FROM base
 
 WORKDIR /app
 
-RUN addgroup -g 500 appgroup
-RUN adduser -u 500 -S appuser -G appgroup
-
 COPY package.json yarn.lock ./
 
 RUN yarn
@@ -20,7 +17,6 @@ RUN yarn
 COPY . .
 
 RUN chmod +x entrypoint.sh
-
 
 ENV NODE_ENV=production
 ENV PORT=8080
