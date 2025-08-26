@@ -1,7 +1,7 @@
 import puppeteer from "npm:puppeteer-core";
 
 const browser = await puppeteer.connect({
-  browserWSEndpoint: "ws://localhost:8080/ws/" + (Deno.args[0] ?? 'default'),
+  browserWSEndpoint: "ws://puppeteer.web.htsc/ws/" + (Deno.args[0] ?? 'pub-default'),
 });
 
 const page = await browser.newPage();
