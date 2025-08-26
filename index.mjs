@@ -231,7 +231,7 @@ async function handleConnection(clientWs, identifier) {
     ];
     // identifier starts with pub- and PROXY_ADDR is set, add proxy
     if (identifier.startsWith("pub-") && PROXY_ADDR) {
-      args.push(`--proxy-server="${PROXY_ADDR}"`);
+      args.push(`--proxy-server=${PROXY_ADDR}`);
     }
     args.push("about:blank");
 
