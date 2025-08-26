@@ -16,6 +16,7 @@ import { fileURLToPath } from "url"; // If needed for relative paths
 // --- Configuration ---
 const SERVER_PORT = parseInt(process.env.PORT) || 8080; // Port for this proxy server
 const CHROME_PATH = process.env.CHROME_PATH || getDefaultChromePath();
+const PROXY_ADDR = process.env.PROXY_ADDR;
 
 function getDefaultChromePath() {
   // (Same function as before - no ESM specific changes needed here)
@@ -86,7 +87,7 @@ function cleanupSession(identifier) {
 // --- Create HTTP Server ---
 const server = http.createServer((req, res) => {
   res.writeHead(404, { "Content-Type": "text/plain" });
-  res.end("Not Found. Use ws://localhost:[port]/ws/[identifier]");
+  res.end(`Not Found. Use ws://localhost:${SERVER_PORT}/ws/[identifier]`);
 });
 
 // --- Create WebSocket Server ---
@@ -211,6 +212,7 @@ async function handleConnection(clientWs, identifier) {
       "--headless=new",
       "--no-first-run",
       "--no-default-browser-check",
+      "--no-sandbox",
       "--disable-gpu",
       "--disable-extensions",
       "--disable-vulkan-surface",
@@ -222,15 +224,21 @@ async function handleConnection(clientWs, identifier) {
       "--disable-breakpad",
       "--disable-crash-reporter",
       `--crash-dumps-dir=${os.tmpdir()}`,
-      "about:blank",
+      "--disable-setuid-sandbox",
+      "--ignore-certificate-errors",
+      "--disable-accelerated-2d-canvas",
+      "--disable-dev-shm-usage",
     ];
+    // identifier starts with pub- and PROXY_ADDR is set, add proxy
+    if (identifier.startsWith("pub-") && PROXY_ADDR) {
+      args.push(`--proxy-server=${PROXY_ADDR}`);
+    }
+    args.push("about:blank");
+
     console.log(
       `[${identifier}] Launching Chrome: ${CHROME_PATH} ${args.join(" ")}`,
     );
-    chromeProcess = spawn(CHROME_PATH, args, {
-      uid: 500,
-      gid: 500,
-    });
+    chromeProcess = spawn(CHROME_PATH, args);
 
     // Handle Chrome process errors during launch phase using a Promise
     const chromeLaunchError = new Promise((_, reject) => {
@@ -506,7 +514,7 @@ server.on("upgrade", (request, socket, head) => {
   } else {
     console.log(`Rejecting upgrade request for invalid path: ${pathname}`);
     socket.write(
-      "HTTP/1.1 400 Bad Request\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nInvalid WebSocket path. Use ws://localhost:[port]/ws/[identifier]",
+      `HTTP/1.1 400 Bad Request\r\nContent-Type: text/plain\r\nConnection: close\r\n\r\nInvalid WebSocket path. Use ws://localhost:${SERVER_PORT}/ws/[identifier]`,
     );
     socket.destroy();
   }
