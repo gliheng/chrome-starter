@@ -7,16 +7,12 @@ import url from "url";
 import process from "process";
 import os from "os";
 import path from "path";
-import { fileURLToPath } from "url"; // If needed for relative paths
 
-// Optional: If you needed __dirname equivalent
-// const __filename = fileURLToPath(import.meta.url);
-// const __dirname = path.dirname(__filename);
 
-// --- Configuration ---
 const SERVER_PORT = parseInt(process.env.PORT) || 8080; // Port for this proxy server
 const CHROME_PATH = process.env.CHROME_PATH || getDefaultChromePath();
 const PROXY_ADDR = process.env.PROXY_ADDR;
+const TIMEOUT = 60 * 1000;
 
 function getDefaultChromePath() {
   // (Same function as before - no ESM specific changes needed here)
@@ -38,7 +34,7 @@ console.log(`Using Chrome path: ${CHROME_PATH}`);
 // --- End Configuration ---
 
 // --- Session Management ---
-// Map: identifier -> { chromeProcess, cdpWs, debugPort, clients: Set<WebSocket> }
+// Map: identifier -> { chromeProcess, cdpWs, debugPort, clients: Set<WebSocket>, timeoutId: Timeout }
 const activeSessions = new Map();
 
 // --- Cleanup Function ---
@@ -50,6 +46,11 @@ function cleanupSession(identifier) {
   }
 
   console.log(`[${identifier}] Cleaning up session...`);
+
+  // Clear any existing timeout
+  if (session.timeoutId) {
+    clearTimeout(session.timeoutId);
+  }
 
   // 1. Close CDP WebSocket connection
   if (session.cdpWs && session.cdpWs.readyState === WebSocket.OPEN) {
@@ -204,7 +205,7 @@ async function handleConnection(clientWs, identifier) {
     // 2. Launch Chrome (spawn is the same)
     const tmpDir = path.join(
       os.tmpdir(),
-      `chrome-session-${identifier}-${Date.now()}`,
+      `chrome-session-${identifier}`,
     );
 
     const args = [
@@ -229,17 +230,14 @@ async function handleConnection(clientWs, identifier) {
       "--disable-accelerated-2d-canvas",
       "--disable-dev-shm-usage",
     ];
-    // identifier starts with pub- and PROXY_ADDR is set, add proxy
     if (identifier.startsWith("pub-") && PROXY_ADDR) {
       args.push(`--proxy-server=${PROXY_ADDR}`);
     }
     args.push("about:blank");
-
     console.log(
       `[${identifier}] Launching Chrome: ${CHROME_PATH} ${args.join(" ")}`,
     );
     chromeProcess = spawn(CHROME_PATH, args);
-
     // Handle Chrome process errors during launch phase using a Promise
     const chromeLaunchError = new Promise((_, reject) => {
       // Assign the actual listener functions
@@ -326,7 +324,34 @@ async function handleConnection(clientWs, identifier) {
       cdpWs: cdpWs,
       debugPort: debugPort,
       clients: new Set([clientWs]), // Add the first client
+      timeoutId: setTimeout(() => {
+        console.log(`[${identifier}] Session timeout reached. Cleaning up.`);
+        cleanupSession(identifier);
+      }, TIMEOUT) // 2 minutes in milliseconds
     };
+
+    // Reset timeout whenever a message is received from any client
+    const resetSessionTimeout = () => {
+      if (tempSessionObject?.timeoutId) {
+        clearTimeout(tempSessionObject.timeoutId);
+        tempSessionObject.timeoutId = setTimeout(() => {
+          console.log(`[${identifier}] Session timeout reached. Cleaning up.`);
+          cleanupSession(identifier);
+        }, TIMEOUT);
+      }
+    };
+
+    // Update the CDP message handler to reset timeout
+    cdpWs.on("message", (message) => {
+      // Reset timeout on any message from CDP
+      resetSessionTimeout();
+      // Use tempSessionObject here as 'session' is not in scope
+      tempSessionObject.clients.forEach((client) => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(message.toString());
+        }
+      });
+    });
 
     // --- Setup Event Handlers for the NEW session ---
 
@@ -415,6 +440,7 @@ async function handleConnection(clientWs, identifier) {
           `[${identifier}] CDP WS closed, cannot relay message from client.`,
         );
       }
+      resetSessionTimeout(); // Reset timeout on client message
     });
 
     // 6. Handle disconnect/error for the FIRST client
@@ -525,7 +551,6 @@ server.listen(SERVER_PORT, () => {
   console.log(
     `Multi-Session WebSocket Chrome Proxy listening on ws://localhost:${SERVER_PORT}/ws/[identifier]`,
   );
-  console.log(`Using Chrome: ${CHROME_PATH}`);
   const now = new Date();
   console.log(`Server started at: ${now.toLocaleString("zh-CN")} (CST)`);
 });
