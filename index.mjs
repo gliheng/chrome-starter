@@ -7,6 +7,7 @@ import url from "url";
 import process from "process";
 import os from "os";
 import path from "path";
+import moment from 'moment';
 
 
 const SERVER_PORT = parseInt(process.env.PORT) || 8080; // Port for this proxy server
@@ -87,6 +88,15 @@ function cleanupSession(identifier) {
 
 // --- Create HTTP Server ---
 const server = http.createServer((req, res) => {
+  if (req.url === '/clients') {
+    res.writeHead(200, { "Content-Type": "text/plain" });
+    res.end(JSON.stringify({
+      size: activeSessions.size,
+      clients: Array.from(activeSessions.keys()),
+    }));
+    return;
+  }
+
   res.writeHead(404, { "Content-Type": "text/plain" });
   res.end(`Not Found. Use ws://localhost:${SERVER_PORT}/ws/[identifier]`);
 });
@@ -205,6 +215,7 @@ async function handleConnection(clientWs, identifier) {
     // 2. Launch Chrome (spawn is the same)
     const tmpDir = path.join(
       os.tmpdir(),
+      moment().format("YYYY-MM-DD"),
       `chrome-session-${identifier}`,
     );
 
@@ -272,7 +283,7 @@ async function handleConnection(clientWs, identifier) {
     // Give Chrome time to start OR fail
     try {
       await Promise.race([
-        new Promise((resolve) => setTimeout(resolve, 3000)), // Wait up to 3s
+        new Promise((resolve) => setTimeout(resolve, 5000)), // Wait up to 5s
         chromeLaunchError,
       ]);
     } finally {
@@ -327,7 +338,7 @@ async function handleConnection(clientWs, identifier) {
       timeoutId: setTimeout(() => {
         console.log(`[${identifier}] Session timeout reached. Cleaning up.`);
         cleanupSession(identifier);
-      }, TIMEOUT) // 2 minutes in milliseconds
+      }, TIMEOUT),
     };
 
     // Reset timeout whenever a message is received from any client
@@ -340,18 +351,6 @@ async function handleConnection(clientWs, identifier) {
         }, TIMEOUT);
       }
     };
-
-    // Update the CDP message handler to reset timeout
-    cdpWs.on("message", (message) => {
-      // Reset timeout on any message from CDP
-      resetSessionTimeout();
-      // Use tempSessionObject here as 'session' is not in scope
-      tempSessionObject.clients.forEach((client) => {
-        if (client.readyState === WebSocket.OPEN) {
-          client.send(message.toString());
-        }
-      });
-    });
 
     // --- Setup Event Handlers for the NEW session ---
 
@@ -382,6 +381,9 @@ async function handleConnection(clientWs, identifier) {
               client.send(message.toString());
             }
           });
+
+          // Reset timeout on any message from CDP
+          resetSessionTimeout();
         });
         resolve(); // CDP is ready, session stored
       });
@@ -515,7 +517,7 @@ server.on("upgrade", (request, socket, head) => {
   const pathname = parsedUrl.pathname;
 
   // Match /ws/IDENTIFIER
-  const match = pathname?.match(/^\/ws\/([\w-]+)$/); // Use optional chaining for pathname
+  const match = pathname?.match(/^\/ws\/([%\w-]+)$/); // Use optional chaining for pathname
 
   if (match && match[1]) {
     // Ensure identifier is captured
@@ -567,7 +569,10 @@ process.on("SIGINT", () => {
     cleanupSession(identifier);
   });
 
-  wss.close(() => console.log("WebSocket server closed."));
+  wss.close(() => {
+    console.log("WebSocket server closed.")
+  });
+
   server.close(() => {
     console.log("HTTP server closed.");
     process.exit(0); // Exit cleanly

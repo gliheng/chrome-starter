@@ -18,6 +18,11 @@ COPY . .
 
 RUN chmod +x entrypoint.sh
 
+# Create crontab entry to run cleanup.mjs at 0:00 AM daily
+RUN echo "0 0 * * * /usr/local/bin/node /app/scripts/cleanup.mjs >> /app/cleanup-log.txt 2>&1" > /etc/cron.d/cleanup-cron
+RUN chmod 0644 /etc/cron.d/cleanup-cron
+RUN crontab /etc/cron.d/cleanup-cron
+
 ENV NODE_ENV=production
 ENV PORT=8080
 
